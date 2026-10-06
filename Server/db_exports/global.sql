@@ -1,4 +1,7 @@
-CREATE DATABASE global;
+-- IF NOT EXISTS so this dump can seed a container whose entrypoint already
+-- created MYSQL_DATABASE. Without it the client aborts at line 1 and no tables
+-- are created (mysql stops at the first error unless --force is given).
+CREATE DATABASE IF NOT EXISTS global;
 
 USE global;
 

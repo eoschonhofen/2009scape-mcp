@@ -1,0 +1,16 @@
+-- Optional: grant the non-root database user access to the `global` schema.
+--
+-- The mariadb image already grants MYSQL_USER every privilege on MYSQL_DATABASE
+-- when both are set in mysql.env, so this file is normally a no-op. It exists
+-- for the case where the user was created before `global` did, or where the
+-- database name in mysql.env does not match the one global.sql creates.
+--
+-- Init files run with root, and an uncommented GRANT here would create a
+-- half-configured user, so this file deliberately ships commented out.
+--
+-- Replace <user> and <password> and uncomment, then recreate the volume:
+--   podman volume rm ...   (or rm -rf ~/.local/share/2009scape/db)
+
+-- CREATE USER IF NOT EXISTS '<user>'@'%' IDENTIFIED BY '<password>';
+-- GRANT ALL PRIVILEGES ON `global`.* TO '<user>'@'%';
+-- FLUSH PRIVILEGES;
