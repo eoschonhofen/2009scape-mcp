@@ -78,7 +78,10 @@ object TestUtils {
     fun preTestSetup() {
         if(ServerConstants.DATA_PATH == null) {
             ServerConfigParser.parse(this::class.java.getResource("test.conf"))
-            Cache.init(this::class.java.getResource("cache").path.toString())
+            // Resolved from test.conf's paths.cache_path. There used to be a
+            // src/test/resources/cache symlink here, but symlinks were removed from
+            // the repo and getResource("cache") then returns null.
+            Cache.init(ServerConstants.CACHE_PATH!!)
             ConfigParser().prePlugin()
             ConfigParser().postPlugin()
             registerTimers()
