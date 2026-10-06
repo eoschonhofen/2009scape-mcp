@@ -5,9 +5,9 @@ import core.game.system.task.Pulse;
 import core.net.Constants;
 import core.net.IoSession;
 import core.ServerConstants;
+import core.auth.AgentToken;
 import core.auth.UserAccountInfo;
 import core.tools.Log;
-import core.tools.SystemLogger;
 import core.game.world.GameWorld;
 import core.net.packet.in.Login;
 
@@ -29,6 +29,15 @@ public class AccountRegister {
 	private static final Pattern PATTERN = Pattern.compile("[a-z0-9_]{1,12}");
 
 	/**
+	 * AIO-04 — per-IP registration limits. The config suppliers are read at call
+	 * time so this is safe to initialise before the config file is parsed.
+	 */
+	private static final RegistrationLimiter LIMITER = new RegistrationLimiter(
+		() -> ServerConstants.REGISTRATION_PER_IP_HOUR,
+		() -> ServerConstants.NAME_CHECKS_PER_IP_MINUTE
+	);
+
+	/**
 	 * Reads the incoming opcode of an account register.
 	 * @param session the session.
 	 * @param opcode the opcode.
@@ -37,8 +46,13 @@ public class AccountRegister {
 	public static void read(final IoSession session, int opcode, ByteBuffer buffer) {
 		int day,month,year,country;
 		UserAccountInfo info = UserAccountInfo.createDefault();
+		final String ip = session.getAddress();
 		switch (opcode) {
 			case 147://details
+				if (!ServerConstants.REGISTRATION_OPEN) {
+					response(session, RegistryResponse.SERVER_BUSY);
+					break;
+				}
 				day = buffer.get();
 				month = buffer.get();
 				year = buffer.getShort();
@@ -46,6 +60,10 @@ public class AccountRegister {
 				response(session, RegistryResponse.SUCCESS);
 				break;
 			case 186://username
+				if (!ServerConstants.REGISTRATION_OPEN || !LIMITER.allowNameCheck(ip)) {
+					response(session, RegistryResponse.SERVER_BUSY);
+					break;
+				}
 				final String username = ByteBufferUtils.getString(buffer).replace(" ", "_").toLowerCase().replace("|", "");
 				info.setUsername(username);
 				if (username.length() <= 0 || username.length() > 12) {
@@ -65,6 +83,10 @@ public class AccountRegister {
 				response(session, RegistryResponse.SUCCESS);
 				break;
 			case 36://Register details
+				if (!ServerConstants.REGISTRATION_OPEN || !LIMITER.allowCreate(ip)) {
+					response(session, RegistryResponse.CANNOT_CREATE);
+					break;
+				}
 				buffer.get(); //Useless size being written that is already written in the RSA block
 				buffer = Login.decryptRSABuffer(buffer, ServerConstants.EXPONENT, ServerConstants.MODULUS);
 				if(buffer.get() != 10){ //RSA header (aka did this decrypt properly)
@@ -83,13 +105,21 @@ public class AccountRegister {
 				String password = ByteBufferUtils.getString(buffer);
 				info.setUsername(name);
 				info.setPassword(password);
-				if (password.length() < 5 || password.length() > 20) {
-					response(session, RegistryResponse.INVALID_PASS_LENGTH);
-					break;
-				}
-				if (password.equals(name)) {
-					response(session, RegistryResponse.PASS_SIMILAR_TO_USER);
-					break;
+				if (ServerConstants.AGENT_TOKENS_ONLY) {
+					// AIO-04 — an AI token replaces the human password rules entirely.
+					if (!AgentToken.isValid(password)) {
+						response(session, RegistryResponse.INVALID_PASS);
+						break;
+					}
+				} else {
+					if (password.length() < 5 || password.length() > 20) {
+						response(session, RegistryResponse.INVALID_PASS_LENGTH);
+						break;
+					}
+					if (password.equals(name)) {
+						response(session, RegistryResponse.PASS_SIMILAR_TO_USER);
+						break;
+					}
 				}
 				if (invalidUsername(name)) {
 					response(session, RegistryResponse.INVALID_USERNAME);
@@ -107,7 +137,13 @@ public class AccountRegister {
 					response(session, RegistryResponse.CANNOT_CREATE);
 					return;
 				}
-				GameWorld.getAuthenticator().createAccountWith(info);
+				if (!GameWorld.getAuthenticator().createAccountWith(info)) {
+					// AIO-04 — the insert failed (duplicate race, database error).
+					response(session, RegistryResponse.CANNOT_CREATE);
+					return;
+				}
+				LIMITER.recordCreate(ip);
+				log(AccountRegister.class, Log.INFO, "Created account " + name + " from " + ip);
 				GameWorld.getPulser().submit(new Pulse() {
 					@Override
 					public boolean pulse() {
