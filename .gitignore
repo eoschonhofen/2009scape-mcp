@@ -47,3 +47,9 @@ Server/hasRan.txt
 # Local MariaDB credentials and per-host quadlet overrides
 mysql.env
 deploy/podman/*.local
+
+# Local JDK, tool caches and the RT4 client checkout used by the run scripts
+/.toolchain/
+/.mavenhome/
+/.gradlehome/
+/client/
