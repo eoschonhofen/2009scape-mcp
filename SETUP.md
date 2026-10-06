@@ -9,14 +9,31 @@ installed in this folder on 2026-10-06.
 |---|---|
 | `Server/` | Game server source (Kotlin/Java) |
 | `builddir/server.jar` | Built server jar (43.9 MB) |
-| `client/` | RT4 game client source (fork of `Pazaz/RT4-Client`) |
-| `.toolchain/jdk-11.0.32.1+1/` | Temurin JDK 11 — **required** by both server and client |
+| `client/` | RT4 game client, a separate repository cloned here (see below) |
+| `.toolchain/jdk-11*/` | Optional JDK 11. Without it, `JAVA_HOME` or `java` on `PATH` must be JDK 11 (`scripts/jdk11.sh`) |
 | `.mavenhome/` | Maven distribution + local repo (redirected out of `~/.m2`) |
 | `.gradlehome/` | Gradle distribution + caches for the client build |
 | `logs/server.log`, `logs/client.log` | Server and client output |
 | `start-server.sh` | Start the game server |
 | `start-client.sh` | Start the game client |
 | `rebuild.sh` | Rebuild `builddir/server.jar` from source |
+
+## Getting the code
+
+```bash
+git clone https://github.com/eoschonhofen/2009scape-mcp.git 2009scape
+cd 2009scape
+git clone https://github.com/eoschonhofen/rt4-client-mcp.git client
+./rebuild.sh
+```
+
+* **Git LFS** must be installed before cloning: the game cache in `Server/data/cache/` is an
+  LFS object. GitHub does not store LFS objects for this fork, so `.lfsconfig` fetches them from
+  the upstream 2009scape repository on GitLab.
+* **JDK 11** is required by both server and client. The scripts pick the first JDK 11 from
+  `.toolchain/jdk-11*/`, `JAVA_HOME`, then `java` on `PATH`, and stop if none is found.
+* The client repository's `client/client/config.json` points at `test.2009scape.org`. Point it
+  at your server before the first start (see [Client configuration](#client-configuration)).
 
 ## Running (two terminals)
 
@@ -151,9 +168,8 @@ required to match it.
 
 ## Client configuration
 
-Everything needed is already done; only the two IPs in
-`client/client/config.json` were changed from `test.2009scape.org` to
-`127.0.0.1`:
+The client repository ships `client/client/config.json` pointing at `test.2009scape.org`.
+For a local server, change the two IPs to `127.0.0.1`:
 
 ```json
 { "ip_management": "127.0.0.1", "ip_address": "127.0.0.1", "world": 1,
@@ -216,7 +232,7 @@ See `client/docs/mcp/USAGE.md` for the full guide; the short version:
 * No target-server gate: point `ip_address` at a live 2009Scape server and you are botting
   there, which breaks their rules. Local server only.
 
-### Files added to the repo working tree
+### What this fork adds
 
 `start-server.sh`, `start-client.sh`, `rebuild.sh`, `SETUP.md`, plus untracked
 `.toolchain/`, `.mavenhome/`, `.gradlehome/`, `.home/`, `logs/`, `builddir/`,
