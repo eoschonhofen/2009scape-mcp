@@ -20,6 +20,7 @@ Server/latestdump.txt
 Management-Server/managementprops/
 Server/worldprops/*
 !Server/worldprops/default.conf
+!Server/worldprops/public.conf.example
 
 **/.idea/workspace.xml
 **/.idea/tasks.xml

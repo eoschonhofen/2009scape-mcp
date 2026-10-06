@@ -267,6 +267,10 @@ class ServerConstants {
         @JvmField
         var MODULUS = BigInteger("96982303379631821170939875058071478695026608406924780574168393250855797534862289546229721580153879336741968220328805101128831071152160922518190059946555203865621183480223212969502122536662721687753974815205744569357388338433981424032996046420057284324856368815997832596174397728134370577184183004453899764051")
 
+        //Path to the server's RSA key pair file. Empty keeps EXPONENT/MODULUS above.
+        @JvmField
+        var RSA_KEY_PATH = ""
+
         @JvmField
         var DAILY_RESTART = false
 
@@ -287,6 +291,22 @@ class ServerConstants {
 
         @JvmField
         var PERSIST_ACCOUNTS = false
+
+        //Master switch for in-client registration. false refuses every create attempt.
+        @JvmField
+        var REGISTRATION_OPEN = true
+
+        //Successful creations allowed per IP per rolling hour.
+        @JvmField
+        var REGISTRATION_PER_IP_HOUR = 3
+
+        //Name-availability checks allowed per IP per rolling minute.
+        @JvmField
+        var NAME_CHECKS_PER_IP_MINUTE = 30
+
+        //true: the registration password must be a 20-character [a-z0-9] agent token.
+        @JvmField
+        var AGENT_TOKENS_ONLY = false
 
         @JvmField
         var DRAGON_AXE_USE_OSRS_SPEC = false

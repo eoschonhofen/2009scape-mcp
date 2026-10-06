@@ -169,6 +169,14 @@ object GameWorld {
         RegionChunk.dirtyListener = ChunkUpdateTracker
         //go overboard with checks to make sure dev mode authenticator never triggers on live
         Auth.configure()
+        if (ServerConstants.USE_AUTH) {
+            // A misconfigured public profile should be obvious at a glance. The
+            // password is deliberately never logged.
+            log(GameWorld::class.java, Log.INFO,
+                "Auth: ${Auth.authenticator.javaClass.simpleName} + " +
+                "${Auth.storageProvider.javaClass.simpleName} on " +
+                "${ServerConstants.DATABASE_ADDRESS}:${ServerConstants.DATABASE_PORT}/${ServerConstants.DATABASE_NAME}")
+        }
         ConfigParser().prePlugin()
         ClassScanner.scanClasspath()
         ClassScanner.loadPureInterfaces()
