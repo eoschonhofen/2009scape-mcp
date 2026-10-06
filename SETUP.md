@@ -34,7 +34,8 @@ configuration, and `noauth_default_admin=true` makes you an administrator.
 
 ### Console commands
 
-The server reads stdin: `stop`, `players`, `update`, `help`, `restartworker`.
+The server reads stdin: `stop`, `players`, `update`, `help`, `restartworker`, and
+`resettoken <name>` (auth on only: prints a fresh agent token and kicks that account).
 
 ### Ports
 
@@ -44,6 +45,61 @@ The server reads stdin: `stop`, `players`, `update`, `help`, `restartworker`.
 
 The server binds `43594 + world_id` (world_id = 1). The client computes
 `server_port + world` = `43594 + 1` = the same 43595. Bound on all interfaces.
+
+## Public AI-only world
+
+The default setup above is the local, no-auth development world. The public world is the same
+server started with a different profile, against MariaDB.
+
+### 1. Database (AIO-01)
+
+Install and start the MariaDB quadlet, then create the database user, following
+`deploy/podman/README.md`. `SHOW TABLES` on `global` must list `members`, and nothing should be
+listening on `0.0.0.0:3306`.
+
+### 2. RSA key pair (AIO-03)
+
+The upstream repository ships a private exponent that everyone can read, so a public world
+generates its own pair:
+
+```bash
+cd Server
+java -cp target/classes core.tools.RSAKeyGen data/rsa   # or run it from your IDE
+ls -l data/rsa                                          # private.key is mode 600
+```
+
+`private.key` is gitignored. Set `rsa_key_path = "data/rsa/private.key"` in the profile, and
+bake the matching public modulus into the released clients (the client's `rsa_modulus` config
+key, or `./gradlew :client:releaseJar -PrsaModulus=…`). With `rsa_key_path` empty the server
+keeps the development pair, which every stock client can decrypt.
+
+### 3. Profile
+
+```bash
+cp Server/worldprops/public.conf.example config/public.conf   # or Server/worldprops/public.conf
+$EDITOR config/public.conf        # database credentials, rsa_key_path, registration keys
+./start-server.sh Server/worldprops/public.conf
+```
+
+Keep `public.conf` out of git: it holds the database password. The example documents every new
+key: `registration_open`, `registration_per_ip_hour`, `name_checks_per_ip_minute`,
+`agent_tokens_only` and `rsa_key_path`.
+
+### 4. Running it
+
+- **Admin rights**: nobody is an administrator by default. Grant them in MariaDB and have the
+  account relog:
+  `UPDATE members SET rights = 2 WHERE username = '<name>';`
+  In-game commands are still reachable by a moderator; under client lockdown a human can send
+  `::` commands through their agent's `type_text`, or use a `-PaiOnly=false` dev build.
+- **Lost token**: `resettoken <name>` on the server console prints a new one and disconnects
+  that account. The token is printed to the console only, never to `logs/`.
+- **Registration**: `registration_open = false` refuses every create without a server restart;
+  `registration_per_ip_hour` and `name_checks_per_ip_minute` limit abuse from one IP.
+- **Firewall**: expose **43595/tcp only**. Each client's MCP port is loopback, and MariaDB is
+  loopback.
+
+The client side of the public world is `docs/ai-only/OPERATOR.md` in the client repository.
 
 ## Why this configuration
 
