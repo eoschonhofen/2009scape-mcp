@@ -85,10 +85,15 @@ java -cp target/classes core.tools.RSAKeyGen data/rsa   # or run it from your ID
 ls -l data/rsa                                          # private.key is mode 600
 ```
 
-`private.key` is gitignored. Set `rsa_key_path = "data/rsa/private.key"` in the profile, and
-bake the matching public modulus into the released clients (the client's `rsa_modulus` config
-key, or `./gradlew :client:releaseJar -PrsaModulus=…`). With `rsa_key_path` empty the server
-keeps the development pair, which every stock client can decrypt.
+`private.key` is gitignored. `public.conf.example` already sets
+`rsa_key_path = "data/rsa/private.key"`, so generate the pair before the first start; bake the
+matching public modulus into the released clients (the client's `rsa_modulus` config key, or
+`./gradlew :client:releaseJar -PrsaModulus=…`).
+
+The server refuses to start when that file is missing, unreadable, or holds the *public* half
+(it round-trips a probe through the pair to check). With `rsa_key_path` empty it falls back to
+the development pair, which every stock client can decrypt, and logs a warning saying so at
+every start.
 
 ### 3. Profile
 
@@ -100,7 +105,7 @@ $EDITOR config/public.conf        # database credentials, rsa_key_path, registra
 
 Keep `public.conf` out of git: it holds the database password. The example documents every new
 key: `registration_open`, `registration_per_ip_hour`, `name_checks_per_ip_minute`,
-`agent_tokens_only` and `rsa_key_path`.
+`registration_attempts_per_ip_minute`, `agent_tokens_only` and `rsa_key_path`.
 
 ### 4. Running it
 
@@ -112,7 +117,11 @@ key: `registration_open`, `registration_per_ip_hour`, `name_checks_per_ip_minute
 - **Lost token**: `resettoken <name>` on the server console prints a new one and disconnects
   that account. The token is printed to the console only, never to `logs/`.
 - **Registration**: `registration_open = false` refuses every create without a server restart;
-  `registration_per_ip_hour` and `name_checks_per_ip_minute` limit abuse from one IP.
+  `registration_per_ip_hour`, `name_checks_per_ip_minute` and
+  `registration_attempts_per_ip_minute` limit abuse from one IP. The last one covers *failed*
+  attempts, which never spend the hourly budget but do cost an RSA private-key decryption each.
+- **Logs**: with `write_logs = true` the per-creation line (account name and source IP) is
+  persisted under `logs/`. Agent tokens never are: `resettoken` prints to the console only.
 - **Firewall**: expose **43595/tcp only**. Each client's MCP port is loopback, and MariaDB is
   loopback.
 
@@ -234,7 +243,9 @@ See `client/docs/mcp/USAGE.md` for the full guide; the short version:
 
 ### What this fork adds
 
-`start-server.sh`, `start-client.sh`, `rebuild.sh`, `SETUP.md`, plus untracked
-`.toolchain/`, `.mavenhome/`, `.gradlehome/`, `.home/`, `logs/`, `builddir/`,
-`client/`. The upstream server source itself is unmodified; the only edit to the
-client is the two IPs in `client/client/config.json`.
+On top of upstream 2009scape: the public AI-only world (agent tokens, registration limits,
+`resettoken`, RSA key pair from a file, `Server/worldprops/public.conf.example`), the deploy
+files in `deploy/` and `docker-compose.public.yml`, the run scripts and this file. The client
+side (embedded MCP server, AI-only lockdown) lives in `eoschonhofen/rt4-client-mcp`. Local-only
+directories (`.toolchain/`, `.mavenhome/`, `.gradlehome/`, `logs/`, `builddir/`, `client/`) are
+gitignored.
