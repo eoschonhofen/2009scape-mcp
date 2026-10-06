@@ -1,0 +1,4 @@
+# GitHub does not store new LFS objects for a fork, so the game cache is
+# fetched from the upstream 2009scape repository on GitLab.
+[lfs]
+	url = https://gitlab.com/2009scape/2009scape.git/info/lfs
