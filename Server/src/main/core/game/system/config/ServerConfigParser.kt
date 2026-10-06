@@ -9,6 +9,7 @@ import core.game.world.GameWorld
 import core.game.world.map.Location
 import core.tools.Log
 import core.tools.LogLevel
+import core.tools.RsaKeyFile
 import core.tools.mysql.Database
 import java.io.File
 import java.net.URL
@@ -149,6 +150,18 @@ object ServerConfigParser {
         ServerConstants.NAME_CHECKS_PER_IP_MINUTE = data.getLong("server.name_checks_per_ip_minute", 30L).toInt()
         ServerConstants.AGENT_TOKENS_ONLY = data.getBoolean("server.agent_tokens_only", false)
         ServerConstants.RSA_KEY_PATH = data.getString("server.rsa_key_path", "")
+        if (ServerConstants.RSA_KEY_PATH.isNotEmpty()) {
+            try {
+                val (modulus, exponent) = RsaKeyFile.load(ServerConstants.RSA_KEY_PATH)
+                ServerConstants.MODULUS = modulus
+                ServerConstants.EXPONENT = exponent
+                log(this::class.java, Log.INFO, "Loaded the RSA key pair from ${ServerConstants.RSA_KEY_PATH}")
+            } catch (e: Exception) {
+                // The message names the file only; the exponent never reaches a log.
+                log(this::class.java, Log.ERR, "Could not load the RSA key pair from ${ServerConstants.RSA_KEY_PATH}: ${e.message}")
+                exitProcess(0)
+            }
+        }
         ServerConstants.DRAGON_AXE_USE_OSRS_SPEC = data.getBoolean("world.dragon_axe_use_osrs_spec", false)
         ServerConstants.DISCORD_OPENRSC_HOOK = data.getString("integrations.openrsc_integration_webhook", "")
         ServerConstants.ENABLE_GLOBAL_CHAT = data.getBoolean("world.enable_global_chat", false)
