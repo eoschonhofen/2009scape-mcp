@@ -62,4 +62,14 @@ class ServerConfigParserTest {
             "public.conf.example should ship a real rsa_key_path"
         )
     }
+
+    @Test
+    fun shouldTreatEveryLoopbackSpellingAsLocal() {
+        for (local in listOf("127.0.0.1", "127.1.2.3", "localhost", "::1", "[::1]", "0.0.0.0", "")) {
+            Assertions.assertTrue(ServerConfigParser.isLoopback(local), local)
+        }
+        for (remote in listOf("play.example.org", "203.0.113.4", "2001:db8::1")) {
+            Assertions.assertFalse(ServerConfigParser.isLoopback(remote), remote)
+        }
+    }
 }

@@ -165,8 +165,21 @@ object ServerConfigParser {
             } catch (e: Exception) {
                 // The message names the file only; the exponent never reaches a log.
                 log(this::class.java, Log.ERR, "Could not load the RSA key pair from ${ServerConstants.RSA_KEY_PATH}: ${e.message}")
-                exitProcess(0)
+                exitProcess(1)
             }
+        } else if (ServerConstants.USE_AUTH) {
+            // The built-in pair's private exponent is in the public upstream source,
+            // so anyone who sniffs a login or a registration can decrypt it.
+            log(this::class.java, Log.WARN,
+                "server.rsa_key_path is unset: using the built-in development RSA pair, whose " +
+                "private half is public. Generate one with core.tools.RSAKeyGen before going public.")
+        }
+        if (ServerConstants.USE_AUTH && isLoopback(data.getString("server.msip"))) {
+            // Correct while the world runs on the operator's own box, wrong the moment
+            // it is published, and nothing else fails loudly when it is.
+            log(this::class.java, Log.WARN,
+                "server.msip is a loopback address while auth is on. Set it to the public host " +
+                "once the world is reachable from outside this machine.")
         }
         ServerConstants.DRAGON_AXE_USE_OSRS_SPEC = data.getBoolean("world.dragon_axe_use_osrs_spec", false)
         ServerConstants.DISCORD_OPENRSC_HOOK = data.getString("integrations.openrsc_integration_webhook", "")
@@ -251,5 +264,17 @@ object ServerConfigParser {
         }
 
         return pathProduct
+    }
+
+    /** True for every spelling of "this machine": 127.x, ::1, localhost, 0.0.0.0. */
+    fun isLoopback(address: String?): Boolean {
+        val host = address?.trim()?.trim('[', ']')?.lowercase() ?: return false
+        return host.isEmpty() ||
+            host == "localhost" ||
+            host == "::1" ||
+            host == "0:0:0:0:0:0:0:1" ||
+            host == "0.0.0.0" ||
+            host == "::" ||
+            host.startsWith("127.")
     }
 }
