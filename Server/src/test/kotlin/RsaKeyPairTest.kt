@@ -55,6 +55,42 @@ class RsaKeyPairTest {
     }
 
     @Test
+    fun shouldRejectThePublicHalfAsAServerKey() {
+        val dir = Files.createTempDirectory("rsa-key").toFile()
+        try {
+            RSAKeyGen.generate(dir.toPath())
+            val (modulus, privateExponent) = RsaKeyFile.load(File(dir, "private.key"))
+            val (_, publicExponent) = RsaKeyFile.load(File(dir, "public.key"))
+
+            RsaKeyFile.requirePrivateHalf(modulus, privateExponent)
+            Assertions.assertThrows(IllegalArgumentException::class.java) {
+                RsaKeyFile.requirePrivateHalf(modulus, publicExponent)
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun shouldRejectAnExponentFromAnotherKeyPair() {
+        val first = Files.createTempDirectory("rsa-key-a").toFile()
+        val second = Files.createTempDirectory("rsa-key-b").toFile()
+        try {
+            RSAKeyGen.generate(first.toPath())
+            RSAKeyGen.generate(second.toPath())
+            val (modulus, _) = RsaKeyFile.load(File(first, "private.key"))
+            val (_, otherExponent) = RsaKeyFile.load(File(second, "private.key"))
+
+            Assertions.assertThrows(IllegalArgumentException::class.java) {
+                RsaKeyFile.requirePrivateHalf(modulus, otherExponent)
+            }
+        } finally {
+            first.deleteRecursively()
+            second.deleteRecursively()
+        }
+    }
+
+    @Test
     fun shouldRejectAKeyFileWithoutAnExponent() {
         val file = File.createTempFile("rsa", ".key")
         try {

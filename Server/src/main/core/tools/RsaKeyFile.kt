@@ -32,4 +32,25 @@ object RsaKeyFile {
     }
 
     fun load(path: String): Pair<BigInteger, BigInteger> = load(File(path))
+
+    /**
+     * Throws unless [exponent] really is the private half of [modulus].
+     *
+     * Encrypts a probe with the public exponent and decrypts it again, the way
+     * `Buffer.rsaenc` and `Login.decryptRSABuffer` do. Pointing the config at
+     * `public.key` otherwise loads 65537 and every login and registration fails
+     * at runtime with an opaque decryption error.
+     */
+    fun requirePrivateHalf(modulus: BigInteger, exponent: BigInteger) {
+        if (exponent == PUBLIC_EXPONENT) {
+            throw IllegalArgumentException("the exponent is the public one (65537); this is the public half of the pair")
+        }
+        val probe = BigInteger.valueOf(0x0A0B0C0DL)
+        val roundTrip = probe.modPow(PUBLIC_EXPONENT, modulus).modPow(exponent, modulus)
+        if (roundTrip != probe) {
+            throw IllegalArgumentException("the modulus and the exponent are not halves of the same key pair")
+        }
+    }
+
+    private val PUBLIC_EXPONENT = BigInteger("65537")
 }

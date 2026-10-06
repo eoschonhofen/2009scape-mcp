@@ -155,6 +155,10 @@ object ServerConfigParser {
         if (ServerConstants.RSA_KEY_PATH.isNotEmpty()) {
             try {
                 val (modulus, exponent) = RsaKeyFile.load(ServerConstants.RSA_KEY_PATH)
+                // Pointing this at public.key loads 65537 and every login and
+                // registration would then fail at runtime with a decryption error,
+                // so prove the half we loaded really is the private one.
+                RsaKeyFile.requirePrivateHalf(modulus, exponent)
                 ServerConstants.MODULUS = modulus
                 ServerConstants.EXPONENT = exponent
                 log(this::class.java, Log.INFO, "Loaded the RSA key pair from ${ServerConstants.RSA_KEY_PATH}")

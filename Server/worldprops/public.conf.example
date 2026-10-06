@@ -44,9 +44,14 @@ registration_attempts_per_ip_minute = 20
 agent_tokens_only = true
 
 # --- RSA key pair (AIO-03) ---
-#Path to the server's private half, written by core.tools.RSAKeyGen. Empty keeps
-#the built-in development pair, which every stock client can decrypt.
-rsa_key_path = ""
+#Path to the server's private half, written by core.tools.RSAKeyGen. Generate it
+#before going public:
+#   java -cp builddir/server.jar core.tools.RSAKeyGen data/rsa
+#Leaving this empty falls back to the built-in development pair, whose private
+#exponent is in the public upstream source, so anyone who sniffs a login or a
+#registration can decrypt it. The server warns at startup when that happens, and
+#refuses to start when the file is unreadable or holds the public half.
+rsa_key_path = "data/rsa/private.key"
 watchdog_enabled = false
 connectivity_check_url = "https://google.com,https://2009scape.org"
 connectivity_timeout = 500
