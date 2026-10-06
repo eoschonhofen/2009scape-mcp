@@ -1,10 +1,13 @@
 package core
 
 import core.api.log
+import core.auth.AgentToken
+import core.auth.Auth
 import core.game.system.SystemManager
 import core.game.system.SystemState
 import core.game.system.config.ServerConfigParser
 import core.game.world.GameWorld
+import core.game.world.repository.Repository
 import core.net.NioReactor
 import core.net.websocket.GameWebSocketServer
 import core.net.websocket.WebSocketTls
@@ -97,14 +100,14 @@ object Server {
         running = true
         GlobalScope.launch {
             while(scanner.hasNextLine()){
-                val command = scanner.nextLine()
-                when(command){
-                    "stop" -> exitProcess(0)
-
-                    "update" -> SystemManager.flag(SystemState.UPDATING)
-                    "help","commands" -> printCommands()
-                    "restartworker" -> SystemManager.flag(SystemState.ACTIVE)
-
+                when(val command = ConsoleCommand.parse(scanner.nextLine())){
+                    ConsoleCommand.Stop -> exitProcess(0)
+                    ConsoleCommand.Update -> SystemManager.flag(SystemState.UPDATING)
+                    ConsoleCommand.Help -> printCommands()
+                    ConsoleCommand.RestartWorker -> SystemManager.flag(SystemState.ACTIVE)
+                    is ConsoleCommand.ResetToken -> resetToken(command.name)
+                    // Blank lines and unknown commands are ignored, as before.
+                    ConsoleCommand.Unknown -> {}
                 }
             }
         }
@@ -145,8 +148,7 @@ object Server {
         }
     }
 
-    private fun checkConnectivity(): Boolean
-    {
+    private fun checkConnectivity(): Boolean    {
         //Has to be done this way because you can't actually ping in Java unless you run the whole thing as root
         val urls = ServerConstants.CONNECTIVITY_CHECK_URL.split(",")
         var timeout = ServerConstants.CONNECTIVITY_TIMEOUT
@@ -179,6 +181,36 @@ object Server {
         println("update - initiate an update with a countdown visible to players")
         println("help, commands - show this")
         println("restartworker - Reboots the major update worker in case of a travesty.")
+        println("resettoken <name> - issue a new agent token for an account, kicking it if online")
+    }
+
+    /**
+     * AIO-05 — rotate an agent's token from the console.
+     *
+     * The new token is printed to this console only: it must not go through
+     * [core.api.log], because `write_logs = true` persists log lines to disk.
+     */
+    private fun resetToken(name: String?) {
+        if (name == null) {
+            println("usage: resettoken <name>")
+            return
+        }
+        if (!ServerConstants.USE_AUTH) {
+            println("auth disabled, tokens unused")
+            return
+        }
+        if (!Auth.storageProvider.checkUsernameTaken(name)) {
+            println("no such account")
+            return
+        }
+        val token = AgentToken.generate()
+        GameWorld.authenticator.updatePassword(name, token)
+        val online = Repository.getPlayerByName(name)
+        if (online != null) {
+            // A leaked-token session ends now rather than at the next restart.
+            online.session.disconnect()
+        }
+        println("token for $name: $token")
     }
 
     fun autoReconnect() {
