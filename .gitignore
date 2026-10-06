@@ -56,3 +56,13 @@ deploy/podman/*.local
 /.mavenhome/
 /.gradlehome/
 /client/
+
+# Rootless podman state for the local container stack: holds image layers and,
+# under storage/, the registry auth written by `podman login`.
+/.podman/
+
+# Worktrees of this repository, checked out inside it by the run scripts.
+/.worktrees/
+
+# Session transcripts dropped here by local tooling.
+/.tmp_s_*.jsonl
