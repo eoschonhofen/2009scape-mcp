@@ -9,15 +9,9 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname "$0")" && pwd)"
-JAVA_HOME="$ROOT/.toolchain/jdk-11.0.32.1+1"
+# shellcheck source=scripts/jdk11.sh
+. "$ROOT/scripts/jdk11.sh"
 
-if [ ! -x "$JAVA_HOME/bin/java" ]; then
-  echo "JDK 11 not found at $JAVA_HOME" >&2
-  exit 1
-fi
-
-export JAVA_HOME
-export PATH="$JAVA_HOME/bin:$PATH"
 export HOME="$ROOT/.mavenhome"
 export MAVEN_USER_HOME="$ROOT/.mavenhome"
 export MAVEN_OPTS="-Dmaven.repo.local=$ROOT/.mavenhome/.m2/repository -Xmx3g"

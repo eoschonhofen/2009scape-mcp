@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the 2009Scape game server using the locally installed JDK 11.
+# Start the 2009Scape game server with JDK 11 (see scripts/jdk11.sh).
 #
 # Usage:
 #   ./start-server.sh              # uses Server/worldprops/default.conf
@@ -16,20 +16,15 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname "$0")" && pwd)"
-JAVA_HOME="$ROOT/.toolchain/jdk-11.0.32.1+1"
 SERVER_HEAP="${SERVER_HEAP:-3G}"
 
-if [ ! -x "$JAVA_HOME/bin/java" ]; then
-  echo "JDK 11 not found at $JAVA_HOME" >&2
-  exit 1
-fi
+# shellcheck source=scripts/jdk11.sh
+. "$ROOT/scripts/jdk11.sh"
 if [ ! -f "$ROOT/builddir/server.jar" ]; then
   echo "Missing $ROOT/builddir/server.jar - run ./rebuild.sh first" >&2
   exit 1
 fi
 
-export JAVA_HOME
-export PATH="$JAVA_HOME/bin:$PATH"
 export HOME="$ROOT/.mavenhome"
 mkdir -p "$ROOT/logs" "$HOME"
 
