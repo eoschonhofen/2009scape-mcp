@@ -1,0 +1,37 @@
+# 2009Scape MariaDB, run as a rootless podman quadlet.
+#
+# Install:
+#   1. Copy this file to ~/.config/containers/systemd/2009scape-db.container
+#   2. Replace every <REPO> below with the absolute path of this checkout.
+#   3. cp mysql.env.example mysql.env and edit it (never commit mysql.env).
+#   4. systemctl --user daemon-reload && systemctl --user start 2009scape-db
+#
+# See deploy/podman/README.md for the full walkthrough and verification.
+
+[Unit]
+Description=2009Scape MariaDB (global schema)
+Documentation=file://<REPO>/deploy/podman/README.md
+
+[Container]
+ContainerName=2009scape-db
+Image=docker.io/library/mariadb:11.4-noble
+# Loopback only: the game server runs natively on the same host.
+PublishPort=127.0.0.1:3306:3306
+# Named volume, so the schema and every account survive a restart or reboot.
+Volume=%h/.local/share/2009scape/db:/var/lib/mysql:Z
+# First-boot seed: the global schema. Only runs on an empty data directory.
+Volume=<REPO>/Server/db_exports/global.sql:/docker-entrypoint-initdb.d/global.sql:ro,Z
+# Optional grants for a non-root user; see grants.sql.
+Volume=<REPO>/deploy/podman/grants.sql:/docker-entrypoint-initdb.d/grants.sql:ro,Z
+EnvironmentFile=<REPO>/mysql.env
+HealthCmd=healthcheck.sh --connect --innodb_initialized
+HealthStartPeriod=30s
+HealthInterval=60s
+HealthTimeout=10s
+HealthRetries=3
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

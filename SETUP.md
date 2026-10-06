@@ -47,9 +47,14 @@ The server binds `43594 + world_id` (world_id = 1). The client computes
 
 ## Why this configuration
 
-* **Docker is not usable on this machine.** `docker` is a podman shim and podman
-  cannot initialize (`/run/user/1000/libpod` is read-only, no sudo). The manual
-  path was therefore used instead of the repo's `docker compose up`.
+* **The container path is podman, and it works from a desktop terminal.**
+  `docker` on this box is a podman shim. Podman cannot initialize inside a
+  sandboxed shell (`/run/user/1000/libpod` is read-only and there is no systemd
+  user bus), which is all the earlier version of this note observed; from a real
+  desktop session the existing user quadlets (SearXNG, Hermes, the vision
+  services) run normally. Use the manual no-auth path below for a quick local
+  world, and the MariaDB quadlet in `deploy/podman/README.md` for the persistent
+  database that `Server/worldprops/public.conf` needs.
 * **JDK 11 is mandatory for the server.** `pom.xml` targets Java 11 and the server
   evaluates JavaScript content through **Nashorn**
   (`-Dnashorn.args=--no-deprecation-warning`), removed from the JDK after 14.
