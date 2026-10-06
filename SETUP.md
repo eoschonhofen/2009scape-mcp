@@ -232,9 +232,10 @@ The RT4 client embeds a Model Context Protocol server so an LLM agent can play t
 See `client/docs/mcp/USAGE.md` for the full guide; the short version:
 
 * On by default, bound to `127.0.0.1:43600` at `POST /mcp`, bearer-token authenticated.
-  The token lives in `client/client/config.json` (`mcp_enabled`, `mcp_port`, `mcp_token`),
-  is generated on first start and written back. That file is marked `skip-worktree` because
-  it also holds the local IPs.
+  `mcp_enabled` and `mcp_port` live in `client/client/config.json`, which is marked
+  `skip-worktree` because it holds the local IPs. The **token** is a secret and is never
+  written into that tracked file: it is generated on first start into `client/client/mcp_token`,
+  mode `0600` and gitignored.
 * The client prints the exact `claude mcp add --transport http rt4 ...` line at startup.
 * `python3 -I client/scripts/mcp-smoke.py --url http://127.0.0.1:43600/mcp --token <token>`
   runs the end-to-end smoke test against the running pair.
