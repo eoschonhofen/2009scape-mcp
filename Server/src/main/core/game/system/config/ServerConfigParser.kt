@@ -148,6 +148,8 @@ object ServerConfigParser {
         ServerConstants.REGISTRATION_OPEN = data.getBoolean("server.registration_open", true)
         ServerConstants.REGISTRATION_PER_IP_HOUR = data.getLong("server.registration_per_ip_hour", 3L).toInt()
         ServerConstants.NAME_CHECKS_PER_IP_MINUTE = data.getLong("server.name_checks_per_ip_minute", 30L).toInt()
+        ServerConstants.REGISTRATION_ATTEMPTS_PER_IP_MINUTE =
+            data.getLong("server.registration_attempts_per_ip_minute", 20L).toInt()
         ServerConstants.AGENT_TOKENS_ONLY = data.getBoolean("server.agent_tokens_only", false)
         ServerConstants.RSA_KEY_PATH = data.getString("server.rsa_key_path", "")
         if (ServerConstants.RSA_KEY_PATH.isNotEmpty()) {

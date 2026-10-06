@@ -34,7 +34,8 @@ public class AccountRegister {
 	 */
 	private static final RegistrationLimiter LIMITER = new RegistrationLimiter(
 		() -> ServerConstants.REGISTRATION_PER_IP_HOUR,
-		() -> ServerConstants.NAME_CHECKS_PER_IP_MINUTE
+		() -> ServerConstants.NAME_CHECKS_PER_IP_MINUTE,
+		() -> ServerConstants.REGISTRATION_ATTEMPTS_PER_IP_MINUTE
 	);
 
 	/**

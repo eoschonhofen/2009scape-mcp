@@ -36,6 +36,7 @@ class ServerConfigParserTest {
         Assertions.assertTrue(ServerConstants.REGISTRATION_OPEN)
         Assertions.assertEquals(3, ServerConstants.REGISTRATION_PER_IP_HOUR)
         Assertions.assertEquals(30, ServerConstants.NAME_CHECKS_PER_IP_MINUTE)
+        Assertions.assertEquals(20, ServerConstants.REGISTRATION_ATTEMPTS_PER_IP_MINUTE)
         Assertions.assertTrue(ServerConstants.AGENT_TOKENS_ONLY)
     }
 

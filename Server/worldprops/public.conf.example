@@ -35,6 +35,10 @@ registration_open = true
 registration_per_ip_hour = 3
 #Name-availability checks (opcode 186) allowed per IP per rolling minute.
 name_checks_per_ip_minute = 30
+#Creation attempts (opcode 36), successful or not, allowed per IP per rolling
+#minute. Each one costs an RSA private-key decryption, so failed attempts are
+#rate limited separately from the hourly budget above.
+registration_attempts_per_ip_minute = 20
 #true: only a 20-character [a-z0-9] agent token is accepted as a password.
 #Clients generate it; a human never types one.
 agent_tokens_only = true
