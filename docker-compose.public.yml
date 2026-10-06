@@ -1,0 +1,56 @@
+# AIO-17 — the public world on a VPS.
+#
+# This is the hardened sibling of docker-compose.yml, which stays the local
+# development stack. Differences:
+#   * only 43595/tcp (43594 + world_id) is published;
+#   * the JDWP debugger is gone. The old file published 5005 and started the JVM
+#     with an agentlib listening on *:5005, which is remote code execution on a
+#     public host;
+#   * MariaDB publishes no port; the game server reaches it over the compose
+#     network;
+#   * the public profile and the RSA private key are mounted read-only.
+#
+# Usage:
+#   cp Server/worldprops/public.conf.example config/public.conf   # fill in creds
+#   docker compose -f docker-compose.public.yml up -d
+#
+# See deploy/vps/README.md for the migration steps.
+
+services:
+  server:
+    build: .
+    depends_on:
+      - db
+    restart: always
+    volumes:
+      - "bcache:/app/Server/target"
+      - "mcache:/root/.m2"
+      - "./Server/data:/app/Server/data"
+      # config/ is gitignored: it holds public.conf with the database password.
+      - "./config:/app/Server/worldprops:ro"
+      # AIO-03 — the private half never needs to be writable in the container.
+      - "./Server/data/rsa:/app/Server/data/rsa:ro"
+    ports:
+      - "43595:43595"
+    command: ["bash", "/app/deploy/vps/run-public.sh"]
+
+  db:
+    # current LTS (Long-Term Support) version
+    image: mariadb:11.4-noble
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    restart: always
+    volumes:
+      - "dbdata:/var/lib/mysql"
+      - "./Server/db_exports/global.sql:/docker-entrypoint-initdb.d/global.sql:ro"
+    env_file:
+      - mysql.env
+
+volumes:
+  bcache:
+  mcache:
+  dbdata:
