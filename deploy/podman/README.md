@@ -19,28 +19,53 @@ user service. This is the database the public AI-only profile
 cp mysql.env.example mysql.env
 $EDITOR mysql.env          # set MYSQL_USER / MYSQL_PASSWORD, see below
 
-# 2. Quadlet. Replace <REPO> with the absolute path of this checkout.
+# 2. The data directory. podman does not create a bind-mount source: without this
+#    the first start fails with "statfs .../db: no such file or directory".
+mkdir -p ~/.local/share/2009scape/db
+
+# 3. Quadlet. Replace <REPO> with the absolute path of this checkout.
 sed "s#<REPO>#$PWD#g" deploy/podman/2009scape-db.container \
     > ~/.config/containers/systemd/2009scape-db.container
 
-# 3. Start it.
+# 4. Start it. The first start pulls the image and seeds the schema.
 systemctl --user daemon-reload
 systemctl --user start 2009scape-db
 ```
 
-`mysql.env` for the public profile should use a dedicated user rather than root:
+`mysql.env` for the public profile should use a dedicated user rather than root,
+and the values must be **unquoted**:
 
 ```ini
-MYSQL_DATABASE="global"
-MYSQL_USER="scape"
-MYSQL_PASSWORD="<random>"
-MYSQL_RANDOM_ROOT_PASSWORD="yes"
+MYSQL_DATABASE=global
+MYSQL_USER=scape
+MYSQL_PASSWORD=<random>
+MYSQL_RANDOM_ROOT_PASSWORD=yes
 ```
 
+podman's `--env-file` keeps quote characters, so `MYSQL_PASSWORD="secret"` makes
+the password `"secret"` *including the quotes* — and the `scape` login then fails
+with `Access denied`, while an operator who reads the file with a shell sees the
+unquoted value. Docker Compose strips the quotes, so the example file, which is
+written for Compose, has them; remove them for the quadlet.
+
 The image creates `MYSQL_USER` and grants it every privilege on `MYSQL_DATABASE`
-before the init files run, so `global.sql` needs no grants of its own. If the
-grant is ever missing, uncomment the statements in `grants.sql` (or run them once
-by hand) and recreate the volume.
+before the init files run, so `global.sql` needs no grants of its own. `global.sql`
+still starts with `CREATE DATABASE IF NOT EXISTS global;`: the entrypoint has
+already created `MYSQL_DATABASE`, and the plain `CREATE DATABASE global;` this dump
+used to carry makes the mysql client abort at line 1, leaving the schema empty. If
+the grant is ever missing, uncomment the statements in `grants.sql` (or run them
+once by hand) and recreate the volume.
+
+To reset the world, stop the service and remove the volume **inside the user
+namespace** — the files belong to the container's mapped user, so a plain
+`rm -rf` fails with `Permission denied`:
+
+```bash
+systemctl --user stop 2009scape-db
+podman unshare rm -rf ~/.local/share/2009scape/db
+mkdir -p ~/.local/share/2009scape/db
+systemctl --user start 2009scape-db
+```
 
 ## Verify
 
@@ -60,7 +85,9 @@ podman exec 2009scape-db mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" global \
 ```
 
 The data lives in `~/.local/share/2009scape/db` (`%h` in the quadlet), so it also
-survives a reboot. Removing that directory resets the world.
+survives a reboot; the unit carries `WantedBy=default.target` and is pulled in by
+`default.target`, which `systemctl --user is-enabled 2009scape-db` reports as
+`generated`.
 
 ## Backup and restore
 
@@ -79,23 +106,37 @@ Account **saves** are not in MariaDB; copy `Server/data/players/`,
 
 ## Verification on the development host (2026-10-06)
 
-The quadlet files were written and the install steps above were exercised as far
-as the agent's sandbox allows. Container startup could **not** be executed there:
+Executed end to end on the Fedora box (podman 5.8.4, image
+`docker.io/library/mariadb:11.4-noble`, MariaDB 11.4.13):
 
 ```
-$ systemctl --user status
-Failed to connect to user scope bus via local transport: No data available
+$ systemctl --user start 2009scape-db
+$ systemctl --user status 2009scape-db
+     Active: active (running) since Tue 2026-10-06 17:36:12 -03
 
-$ podman info
-Failed to obtain podman configuration: set sticky bit on: chmod /run/user/1000/libpod: read-only file system
+$ podman exec 2009scape-db mariadb -uscape -p*** global -e 'SHOW TABLES'
+Tables_in_global
+members
+worlds
 
-$ XDG_RUNTIME_DIR=<writable> podman info
-Error: cannot set up namespace using "/usr/bin/newuidmap": exit status 1
-    newuidmap: write to uid_map failed: Operation not permitted
+$ podman exec 2009scape-db mariadb -uscape -p*** global -e 'SELECT COUNT(*) FROM members'
+0
+
+$ ss -ltn | grep 3306
+LISTEN 0  128  127.0.0.1:3306  0.0.0.0:*        # no 0.0.0.0 listener
+
+$ podman healthcheck run 2009scape-db && echo OK
+OK
 ```
 
-Both are sandbox restrictions, not host problems: Hermes, SearXNG and the vision
-quadlets already run as user services on this box. **Run steps 1–3 and the
-verification commands from a normal desktop terminal**, and record their output
-here. `mariadbd` (mariadb-server 10.11) is also installed natively, which is the
-fallback if the quadlet cannot be used at all.
+Persistence was proved by inserting a row into `members`, running
+`systemctl --user restart 2009scape-db`, reading it back (`1` before and after)
+and deleting it again. `systemctl --user is-enabled 2009scape-db` reports
+`generated`, the unit appears in `systemctl --user list-dependencies default.target`,
+and it carries `Restart=always`, so the service comes back after a reboot; the data
+is on the host at `~/.local/share/2009scape/db`.
+
+Three problems only showed up on a clean first run, and all three are fixed above:
+the missing bind-mount directory, the quoted `MYSQL_PASSWORD` that podman keeps
+literally, and `CREATE DATABASE global;` in `Server/db_exports/global.sql`, which
+aborted the import against the database the entrypoint had already created.
