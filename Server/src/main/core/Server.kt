@@ -6,6 +6,7 @@ import core.auth.Auth
 import core.game.system.SystemManager
 import core.game.system.SystemState
 import core.game.system.config.ServerConfigParser
+import core.game.system.task.Pulse
 import core.game.world.GameWorld
 import core.game.world.repository.Repository
 import core.net.NioReactor
@@ -148,7 +149,8 @@ object Server {
         }
     }
 
-    private fun checkConnectivity(): Boolean    {
+    private fun checkConnectivity(): Boolean
+    {
         //Has to be done this way because you can't actually ping in Java unless you run the whole thing as root
         val urls = ServerConstants.CONNECTIVITY_CHECK_URL.split(",")
         var timeout = ServerConstants.CONNECTIVITY_TIMEOUT
@@ -205,12 +207,29 @@ object Server {
         }
         val token = AgentToken.generate()
         GameWorld.authenticator.updatePassword(name, token)
-        val online = Repository.getPlayerByName(name)
-        if (online != null) {
-            // A leaked-token session ends now rather than at the next restart.
-            online.session.disconnect()
-        }
+        // The console runs on its own coroutine, so touching the repository or a
+        // player has to happen on the game thread.
+        GameWorld.Pulser.submit(object : Pulse(1) {
+            override fun pulse(): Boolean {
+                kickAfterTokenReset(name, token)
+                return true
+            }
+        })
         println("token for $name: $token")
+    }
+
+    /**
+     * AIO-05 — ends a session that still holds the old token.
+     *
+     * The in-memory hash is replaced first. [core.game.node.entity.player.Player.clear]
+     * saves the account info on its way out, and that save would otherwise write the
+     * pre-reset hash back over the row [core.auth.AuthProvider.updatePassword] just
+     * wrote, quietly reviving the leaked token.
+     */
+    private fun kickAfterTokenReset(name: String, token: String) {
+        val online = Repository.getPlayerByName(name) ?: return
+        online.details.accountInfo.password = SystemManager.getEncryption().hashPassword(token)
+        online.clear()
     }
 
     fun autoReconnect() {

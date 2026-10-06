@@ -4,13 +4,16 @@ package core.net.registry
  * AIO-04 — sliding-window rate limits for in-client registration, per IP.
  *
  * Pure apart from the injected [clock], so the windows can be tested without
- * sleeping. [allowCreate] only checks; a creation is recorded with
- * [recordCreate] once it actually succeeded, so failed attempts, duplicate
- * names and refused passwords never spend the hourly budget.
+ * sleeping. There are three windows: successful creations per hour (recorded
+ * with [recordCreate], so duplicate names and refused passwords never spend the
+ * hourly budget), name checks per minute, and bare creation *attempts* per
+ * minute, which every call to [allowCreate] spends because each attempt costs
+ * the server an RSA private-key decryption.
  */
 class RegistrationLimiter @JvmOverloads constructor(
     private val perHour: () -> Int,
     private val nameChecksPerMinute: () -> Int,
+    private val attemptsPerMinute: () -> Int = { 20 },
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     private companion object {
@@ -20,14 +23,27 @@ class RegistrationLimiter @JvmOverloads constructor(
 
     private val creations = HashMap<String, ArrayDeque<Long>>()
     private val nameChecks = HashMap<String, ArrayDeque<Long>>()
+    private val attempts = HashMap<String, ArrayDeque<Long>>()
     private var lastSweep = clock()
 
-    /** True when this IP may attempt another creation right now. Does not record it. */
+    /**
+     * True when this IP may attempt another creation right now. Does not spend the
+     * hourly budget, but it does spend one attempt: an attempt costs the server an
+     * RSA private-key decryption, so failures cannot be free.
+     */
     @Synchronized
     fun allowCreate(ip: String): Boolean {
         val now = clock()
         maybeSweep(now)
-        return window(creations, ip, now, HOUR_MILLIS).size < perHour()
+        if (window(creations, ip, now, HOUR_MILLIS).size >= perHour()) {
+            return false
+        }
+        val tries = window(attempts, ip, now, MINUTE_MILLIS)
+        if (tries.size >= attemptsPerMinute()) {
+            return false
+        }
+        tries.addLast(now)
+        return true
     }
 
     /** Spends one creation slot. Call this only after the account was stored. */
@@ -53,22 +69,24 @@ class RegistrationLimiter @JvmOverloads constructor(
     /** Drops every expired entry. Runs automatically about once a minute. */
     @Synchronized
     fun sweep() {
-        val now = clock()
-        purge(creations, now, HOUR_MILLIS)
-        purge(nameChecks, now, MINUTE_MILLIS)
-        lastSweep = now
+        purgeAll(clock())
     }
 
-    /** How many IPs are currently tracked; for tests and diagnostics. */
+    /** How many distinct IPs are currently tracked; for tests and diagnostics. */
     @Synchronized
-    fun trackedIpCount(): Int = creations.size + nameChecks.size
+    fun trackedIpCount(): Int = (creations.keys + nameChecks.keys + attempts.keys).size
 
     private fun maybeSweep(now: Long) {
         if (now - lastSweep >= MINUTE_MILLIS) {
-            purge(creations, now, HOUR_MILLIS)
-            purge(nameChecks, now, MINUTE_MILLIS)
-            lastSweep = now
+            purgeAll(now)
         }
+    }
+
+    private fun purgeAll(now: Long) {
+        purge(creations, now, HOUR_MILLIS)
+        purge(nameChecks, now, MINUTE_MILLIS)
+        purge(attempts, now, MINUTE_MILLIS)
+        lastSweep = now
     }
 
     private fun window(map: HashMap<String, ArrayDeque<Long>>, ip: String, now: Long, span: Long): ArrayDeque<Long> {

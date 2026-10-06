@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 /** AIO-04 — per-IP sliding windows with a fake clock. */
 class RegistrationLimiterTest {
     private var now = 1_000_000L
-    private val limiter = RegistrationLimiter({ 3 }, { 2 }, { now })
+    private val limiter = RegistrationLimiter({ 3 }, { 2 }, { 20 }, { now })
 
     @Test
     fun shouldAllowThreeCreationsPerHourPerIp() {
@@ -19,7 +19,8 @@ class RegistrationLimiterTest {
 
     @Test
     fun shouldNotCountFailedAttemptsAgainstTheHourlyLimit() {
-        // allowCreate only checks, so repeated attempts never spend the budget.
+        // allowCreate never spends the hourly budget, so repeated failures do not
+        // lock an IP out for an hour; they only spend the per-minute attempts.
         repeat(10) { Assertions.assertTrue(limiter.allowCreate("10.0.0.2")) }
         repeat(3) {
             Assertions.assertTrue(limiter.allowCreate("10.0.0.2"))
@@ -57,9 +58,21 @@ class RegistrationLimiterTest {
     }
 
     @Test
+    fun shouldLimitBareAttemptsPerMinute() {
+        // Each attempt costs an RSA decryption, so failures are rate limited even
+        // though they never reach recordCreate.
+        repeat(20) { Assertions.assertTrue(limiter.allowCreate("10.0.0.9"), "attempt ${it + 1}") }
+        Assertions.assertFalse(limiter.allowCreate("10.0.0.9"))
+
+        now += 60_000L
+        Assertions.assertTrue(limiter.allowCreate("10.0.0.9"))
+    }
+
+    @Test
     fun shouldPruneExpiredEntries() {
         limiter.recordCreate("10.0.0.7")
         limiter.allowNameCheck("10.0.0.8")
+        limiter.allowCreate("10.0.0.8") // the same IP in two maps still counts once
         Assertions.assertEquals(2, limiter.trackedIpCount())
 
         now += 3_600_000L

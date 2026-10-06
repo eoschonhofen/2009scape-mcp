@@ -148,19 +148,38 @@ object ServerConfigParser {
         ServerConstants.REGISTRATION_OPEN = data.getBoolean("server.registration_open", true)
         ServerConstants.REGISTRATION_PER_IP_HOUR = data.getLong("server.registration_per_ip_hour", 3L).toInt()
         ServerConstants.NAME_CHECKS_PER_IP_MINUTE = data.getLong("server.name_checks_per_ip_minute", 30L).toInt()
+        ServerConstants.REGISTRATION_ATTEMPTS_PER_IP_MINUTE =
+            data.getLong("server.registration_attempts_per_ip_minute", 20L).toInt()
         ServerConstants.AGENT_TOKENS_ONLY = data.getBoolean("server.agent_tokens_only", false)
         ServerConstants.RSA_KEY_PATH = data.getString("server.rsa_key_path", "")
         if (ServerConstants.RSA_KEY_PATH.isNotEmpty()) {
             try {
                 val (modulus, exponent) = RsaKeyFile.load(ServerConstants.RSA_KEY_PATH)
+                // Pointing this at public.key loads 65537 and every login and
+                // registration would then fail at runtime with a decryption error,
+                // so prove the half we loaded really is the private one.
+                RsaKeyFile.requirePrivateHalf(modulus, exponent)
                 ServerConstants.MODULUS = modulus
                 ServerConstants.EXPONENT = exponent
                 log(this::class.java, Log.INFO, "Loaded the RSA key pair from ${ServerConstants.RSA_KEY_PATH}")
             } catch (e: Exception) {
                 // The message names the file only; the exponent never reaches a log.
                 log(this::class.java, Log.ERR, "Could not load the RSA key pair from ${ServerConstants.RSA_KEY_PATH}: ${e.message}")
-                exitProcess(0)
+                exitProcess(1)
             }
+        } else if (ServerConstants.USE_AUTH) {
+            // The built-in pair's private exponent is in the public upstream source,
+            // so anyone who sniffs a login or a registration can decrypt it.
+            log(this::class.java, Log.WARN,
+                "server.rsa_key_path is unset: using the built-in development RSA pair, whose " +
+                "private half is public. Generate one with core.tools.RSAKeyGen before going public.")
+        }
+        if (ServerConstants.USE_AUTH && isLoopback(data.getString("server.msip"))) {
+            // Correct while the world runs on the operator's own box, wrong the moment
+            // it is published, and nothing else fails loudly when it is.
+            log(this::class.java, Log.WARN,
+                "server.msip is a loopback address while auth is on. Set it to the public host " +
+                "once the world is reachable from outside this machine.")
         }
         ServerConstants.DRAGON_AXE_USE_OSRS_SPEC = data.getBoolean("world.dragon_axe_use_osrs_spec", false)
         ServerConstants.DISCORD_OPENRSC_HOOK = data.getString("integrations.openrsc_integration_webhook", "")
@@ -245,5 +264,17 @@ object ServerConfigParser {
         }
 
         return pathProduct
+    }
+
+    /** True for every spelling of "this machine": 127.x, ::1, localhost, 0.0.0.0. */
+    fun isLoopback(address: String?): Boolean {
+        val host = address?.trim()?.trim('[', ']')?.lowercase() ?: return false
+        return host.isEmpty() ||
+            host == "localhost" ||
+            host == "::1" ||
+            host == "0:0:0:0:0:0:0:1" ||
+            host == "0.0.0.0" ||
+            host == "::" ||
+            host.startsWith("127.")
     }
 }

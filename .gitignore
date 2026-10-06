@@ -45,8 +45,11 @@ Server/hasRan.txt
 /.env
 /*.env
 # Local MariaDB credentials and per-host quadlet overrides
-mysql.env
+# (mysql.env itself is already covered by /*.env above)
 deploy/podman/*.local
+# The VPS stack mounts config/ as worldprops; it holds public.conf with the
+# database password.
+/config/
 
 # Local JDK, tool caches and the RT4 client checkout used by the run scripts
 /.toolchain/

@@ -304,6 +304,11 @@ class ServerConstants {
         @JvmField
         var NAME_CHECKS_PER_IP_MINUTE = 30
 
+        //Creation attempts (successful or not) allowed per IP per rolling minute.
+        //Each one costs an RSA private-key decryption, so failures are not free.
+        @JvmField
+        var REGISTRATION_ATTEMPTS_PER_IP_MINUTE = 20
+
         //true: the registration password must be a 20-character [a-z0-9] agent token.
         @JvmField
         var AGENT_TOKENS_ONLY = false

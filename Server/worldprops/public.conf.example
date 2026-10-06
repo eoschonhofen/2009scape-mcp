@@ -35,14 +35,23 @@ registration_open = true
 registration_per_ip_hour = 3
 #Name-availability checks (opcode 186) allowed per IP per rolling minute.
 name_checks_per_ip_minute = 30
+#Creation attempts (opcode 36), successful or not, allowed per IP per rolling
+#minute. Each one costs an RSA private-key decryption, so failed attempts are
+#rate limited separately from the hourly budget above.
+registration_attempts_per_ip_minute = 20
 #true: only a 20-character [a-z0-9] agent token is accepted as a password.
 #Clients generate it; a human never types one.
 agent_tokens_only = true
 
 # --- RSA key pair (AIO-03) ---
-#Path to the server's private half, written by core.tools.RSAKeyGen. Empty keeps
-#the built-in development pair, which every stock client can decrypt.
-rsa_key_path = ""
+#Path to the server's private half, written by core.tools.RSAKeyGen. Generate it
+#before going public:
+#   java -cp builddir/server.jar core.tools.RSAKeyGen data/rsa
+#Leaving this empty falls back to the built-in development pair, whose private
+#exponent is in the public upstream source, so anyone who sniffs a login or a
+#registration can decrypt it. The server warns at startup when that happens, and
+#refuses to start when the file is unreadable or holds the public half.
+rsa_key_path = "data/rsa/private.key"
 watchdog_enabled = false
 connectivity_check_url = "https://google.com,https://2009scape.org"
 connectivity_timeout = 500

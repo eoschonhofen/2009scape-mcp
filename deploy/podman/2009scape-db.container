@@ -17,7 +17,8 @@ ContainerName=2009scape-db
 Image=docker.io/library/mariadb:11.4-noble
 # Loopback only: the game server runs natively on the same host.
 PublishPort=127.0.0.1:3306:3306
-# Named volume, so the schema and every account survive a restart or reboot.
+# Host bind mount, so the schema and every account survive a restart, a reboot
+# or a `podman rm` of the container.
 Volume=%h/.local/share/2009scape/db:/var/lib/mysql:Z
 # First-boot seed: the global schema. Only runs on an empty data directory.
 Volume=<REPO>/Server/db_exports/global.sql:/docker-entrypoint-initdb.d/global.sql:ro,Z
