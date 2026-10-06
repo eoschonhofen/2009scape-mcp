@@ -10,10 +10,14 @@
 #    (-Dnashorn.args=...), which was removed from the JDK after 14.
 #  - HOME and MAVEN_USER_HOME are redirected into the project because
 #    ~/.m2 is not writable in this environment.
+#  - The heap is capped explicitly. Without -Xmx the JVM defaults to 1/4 of
+#    physical RAM (~7.8G on this box), so a forgotten server can balloon.
+#    Override with e.g. SERVER_HEAP=4G ./start-server.sh
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname "$0")" && pwd)"
 JAVA_HOME="$ROOT/.toolchain/jdk-11.0.32.1+1"
+SERVER_HEAP="${SERVER_HEAP:-3G}"
 
 if [ ! -x "$JAVA_HOME/bin/java" ]; then
   echo "JDK 11 not found at $JAVA_HOME" >&2
@@ -30,4 +34,4 @@ export HOME="$ROOT/.mavenhome"
 mkdir -p "$ROOT/logs" "$HOME"
 
 cd "$ROOT/Server"
-exec java -Dnashorn.args=--no-deprecation-warning -jar "$ROOT/builddir/server.jar" "$@"
+exec java -Xmx"$SERVER_HEAP" -Dnashorn.args=--no-deprecation-warning -jar "$ROOT/builddir/server.jar" "$@"
