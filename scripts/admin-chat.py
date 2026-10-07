@@ -30,10 +30,12 @@ class App(Gtk.Application):
         scroll = Gtk.ScrolledWindow(vexpand=True)
         scroll.set_child(self.log)
         row = Gtk.Box(spacing=8)
+        self.target = Gtk.Entry(width_chars=14, placeholder_text="Whisper to (blank = global)")
         self.entry = Gtk.Entry(hexpand=True, placeholder_text="Message to global chat (as MessageOfGod)")
         self.entry.connect("activate", self.send)
         btn = Gtk.Button(label="Send")
         btn.connect("clicked", self.send)
+        row.append(self.target)
         row.append(self.entry)
         row.append(btn)
         box.append(scroll)
@@ -51,9 +53,11 @@ class App(Gtk.Application):
         if not text:
             return
         try:
+            who = " ".join(self.target.get_text().split())
+            line = f"whisper\t{who}\t{text}" if who else text
             with open(SPOOL, "a", encoding="utf-8") as f:
-                f.write(text + "\n")
-            self.note(text)
+                f.write(line + "\n")
+            self.note(f"[to {who}] {text}" if who else text)
             self.entry.set_text("")
         except OSError as e:
             self.note(f"ERROR: {e}")
