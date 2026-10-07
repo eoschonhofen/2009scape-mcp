@@ -1,6 +1,7 @@
 package core
 
 import core.api.log
+import core.api.sendMessage
 import core.auth.AgentToken
 import core.auth.Auth
 import core.game.node.entity.player.info.Rights
@@ -202,11 +203,29 @@ object Server {
                 if (!adminChatSpool.isFile || adminChatSpool.length() == 0L) continue
                 val lines = adminChatSpool.readLines()
                 adminChatSpool.writeText("")
-                lines.map { it.trim() }.filter { it.isNotEmpty() }.forEach { globalSay(it) }
+                lines.map { it.trim() }.filter { it.isNotEmpty() }.forEach { spoolLine(it) }
             } catch (e: Exception) {
                 println("admin chat spool: ${e.message}")
             }
         }
+    }
+
+    /** `whisper<TAB>player<TAB>text` is a private message; any other line is global chat. */
+    private fun spoolLine(line: String) {
+        val parts = line.split('\t', limit = 3)
+        if (parts.size == 3 && parts[0] == "whisper") whisper(parts[1], parts[2]) else globalSay(line)
+    }
+
+    /** Sends [message] privately to [target] as WhisperOfGod. Runs on the game thread. */
+    private fun whisper(target: String, message: String) {
+        GameWorld.Pulser.submit(object : Pulse(1) {
+            override fun pulse(): Boolean {
+                val player = Repository.getPlayerByName(target.trim())
+                if (player == null) println("whisper: $target is not online")
+                else sendMessage(player, "<img=1><col=7512ff>WhisperOfGod whispers: $message")
+                return true
+            }
+        })
     }
 
     /** Sends [message] to global chat as the admin. Runs on the game thread, like [resetToken]. */
