@@ -217,7 +217,7 @@ object Server {
         }
         GameWorld.Pulser.submit(object : Pulse(1) {
             override fun pulse(): Boolean {
-                GlobalChat.process("Admin", message, Rights.ADMINISTRATOR.toInteger())
+                GlobalChat.process("MessageOfGod", message, Rights.ADMINISTRATOR.toInteger())
                 return true
             }
         })

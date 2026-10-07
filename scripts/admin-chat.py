@@ -30,7 +30,7 @@ class App(Gtk.Application):
         scroll = Gtk.ScrolledWindow(vexpand=True)
         scroll.set_child(self.log)
         row = Gtk.Box(spacing=8)
-        self.entry = Gtk.Entry(hexpand=True, placeholder_text="Message to global chat (as Admin)")
+        self.entry = Gtk.Entry(hexpand=True, placeholder_text="Message to global chat (as MessageOfGod)")
         self.entry.connect("activate", self.send)
         btn = Gtk.Button(label="Send")
         btn.connect("clicked", self.send)
