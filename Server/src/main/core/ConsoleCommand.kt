@@ -16,6 +16,9 @@ sealed class ConsoleCommand {
     /** `resettoken [name]`; [name] is normalized, or null when the argument is missing. */
     data class ResetToken(val name: String?) : ConsoleCommand()
 
+    /** `gsay <message>`; a global chat line sent as the admin account. */
+    data class GlobalSay(val message: String) : ConsoleCommand()
+
     object Unknown : ConsoleCommand()
 
     companion object {
@@ -32,6 +35,10 @@ sealed class ConsoleCommand {
                     // A username may contain spaces, so everything after the command is the name.
                     val raw = parts.drop(1).joinToString(" ").trim()
                     ResetToken(if (raw.isEmpty()) null else normalizeName(raw))
+                }
+                "gsay" -> {
+                    val message = line.trim().split(WHITESPACE, limit = 2).getOrNull(1)?.trim().orEmpty()
+                    if (message.isEmpty()) Unknown else GlobalSay(message)
                 }
                 else -> Unknown
             }

@@ -34,4 +34,10 @@ class ConsoleCommandTest {
         Assertions.assertEquals(ConsoleCommand.Unknown, ConsoleCommand.parse("   "))
         Assertions.assertEquals(ConsoleCommand.Unknown, ConsoleCommand.parse("ban bob"))
     }
+
+    @Test
+    fun shouldParseGlobalSayKeepingTheWholeMessage() {
+        Assertions.assertEquals(ConsoleCommand.GlobalSay("hello  world"), ConsoleCommand.parse("gsay hello  world"))
+        Assertions.assertEquals(ConsoleCommand.Unknown, ConsoleCommand.parse("gsay"))
+    }
 }

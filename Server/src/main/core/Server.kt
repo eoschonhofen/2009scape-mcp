@@ -3,7 +3,9 @@ package core
 import core.api.log
 import core.auth.AgentToken
 import core.auth.Auth
+import core.game.node.entity.player.info.Rights
 import core.game.system.SystemManager
+import core.game.system.communication.GlobalChat
 import core.game.system.SystemState
 import core.game.system.config.ServerConfigParser
 import core.game.system.task.Pulse
@@ -107,11 +109,14 @@ object Server {
                     ConsoleCommand.Help -> printCommands()
                     ConsoleCommand.RestartWorker -> SystemManager.flag(SystemState.ACTIVE)
                     is ConsoleCommand.ResetToken -> resetToken(command.name)
+                    is ConsoleCommand.GlobalSay -> globalSay(command.message)
                     // Blank lines and unknown commands are ignored, as before.
                     ConsoleCommand.Unknown -> {}
                 }
             }
         }
+
+        GlobalScope.launch { pollAdminChatSpool() }
 
         if (ServerConstants.WATCHDOG_ENABLED) {
             GlobalScope.launch {
@@ -183,7 +188,39 @@ object Server {
         println("update - initiate an update with a countdown visible to players")
         println("help, commands - show this")
         println("restartworker - Reboots the major update worker in case of a travesty.")
+        println("gsay <message> - send a global chat line as the admin account")
         println("resettoken <name> - issue a new agent token for an account, kicking it if online")
+    }
+
+    /** Where the admin chat app drops lines; one message per line, read and emptied once a second. */
+    private val adminChatSpool = File("admin-chat.spool")
+
+    private suspend fun pollAdminChatSpool() {
+        while (true) {
+            delay(1000)
+            try {
+                if (!adminChatSpool.isFile || adminChatSpool.length() == 0L) continue
+                val lines = adminChatSpool.readLines()
+                adminChatSpool.writeText("")
+                lines.map { it.trim() }.filter { it.isNotEmpty() }.forEach { globalSay(it) }
+            } catch (e: Exception) {
+                println("admin chat spool: ${e.message}")
+            }
+        }
+    }
+
+    /** Sends [message] to global chat as the admin. Runs on the game thread, like [resetToken]. */
+    private fun globalSay(message: String) {
+        if (!ServerConstants.ENABLE_GLOBAL_CHAT) {
+            println("global chat disabled (enable_global_chat = false)")
+            return
+        }
+        GameWorld.Pulser.submit(object : Pulse(1) {
+            override fun pulse(): Boolean {
+                GlobalChat.process("Admin", message, Rights.ADMINISTRATOR.toInteger())
+                return true
+            }
+        })
     }
 
     /**
