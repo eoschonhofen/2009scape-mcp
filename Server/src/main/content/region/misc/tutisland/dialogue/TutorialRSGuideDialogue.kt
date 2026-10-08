@@ -111,7 +111,14 @@ class TutorialRSGuideDialogue(player: Player? = null) : DialoguePlugin(player) {
             99 -> {
                 end()
                 val tutStage = player?.getAttribute("tutorial:stage", 0) ?: 0
-                TutorialStage.load(player, tutStage)
+                // Stage 0 is the character design. Reloading it calls CharacterDesign.open, which
+                // resets the design in progress and reopens the panel on its first page, so a
+                // player who talks to the guide before finishing the design loses all of it. While
+                // the design is open the only thing to restore is the instruction, and the
+                // DialogueClosed hook (TutorialDialogPreserver) already sends that.
+                if (tutStage != 0) {
+                    TutorialStage.load(player, tutStage)
+                }
             }
         }
         return true
