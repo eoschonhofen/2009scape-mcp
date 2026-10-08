@@ -255,10 +255,18 @@ public final class CharacterDesign {
 					setVarbit(player, 5009, 1);
 				}
 		reset(player);
+		player.getAppearance().changeGender(male ? Gender.MALE : Gender.FEMALE);
 	}
 
 	/**
 	 * Changes the look of a player.
+	 *
+	 * The new part is put on the character at once rather than saved up for the
+	 * confirm button. The client draws the character being designed from its own
+	 * copy of the appearance, so a design that lived only in an attribute left
+	 * every screen saying no more than "Select next hair style" with nothing,
+	 * anywhere, saying which style was on -- which is how a character stayed on
+	 * the first style, the bare head.
 	 * @param player The player.
 	 * @param index The index.
 	 * @param increment If we're incrementing.
@@ -268,18 +276,26 @@ public final class CharacterDesign {
 			player.setAttribute("first-click:" + index, true);
 			return;
 		}
-		player.setAttribute("look-val:" + index, getValue(player, "look", index, (int) player.getAttribute("look:" + index, 0), increment));
+		int val = getValue(player, "look", index, (int) player.getAttribute("look:" + index, 0), increment);
+		player.setAttribute("look-val:" + index, val);
+		player.getAppearance().getAppearanceCache()[index].changeLook(val);
+		player.getAppearance().sync();
 	}
 
 	/**
 	 * Changes the color of a player.
+	 *
+	 * Applied at once, like the look: a colour the character is not wearing yet is
+	 * a colour nobody can read back.
 	 * @param player The player.
 	 * @param index The body index.
 	 * @param array The color array.
 	 */
 	private static void changeColor(Player player, int index, int[] array, int startId, int buttonId) {
 		int col = array[Math.abs(buttonId - startId)];
-		player.setAttribute("color-val:" + index, array[Math.abs(buttonId - startId)]);
+		player.setAttribute("color-val:" + index, col);
+		player.getAppearance().getAppearanceCache()[index].changeColor(col);
+		player.getAppearance().sync();
 	}
 
 	/**
