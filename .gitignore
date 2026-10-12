@@ -67,3 +67,5 @@ deploy/podman/*.local
 # Session transcripts dropped here by local tooling.
 /.tmp_s_*.jsonl
 Server/admin-chat.spool
+/aionly-test/
+__pycache__/
