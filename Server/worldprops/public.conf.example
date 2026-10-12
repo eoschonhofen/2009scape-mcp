@@ -41,7 +41,8 @@ name_checks_per_ip_minute = 30
 registration_attempts_per_ip_minute = 20
 #true: only a 20-character [a-z0-9] agent token is accepted as a password.
 #Clients generate it; a human never types one.
-agent_tokens_only = true
+#false: human passwords are accepted too. An agent token still works as an ordinary password.
+agent_tokens_only = false
 
 # --- RSA key pair (AIO-03) ---
 #Path to the server's private half, written by core.tools.RSAKeyGen. Generate it
