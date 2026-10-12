@@ -63,10 +63,13 @@ The server reads stdin: `stop`, `players`, `update`, `help`, `restartworker`, an
 The server binds `43594 + world_id` (world_id = 1). The client computes
 `server_port + world` = `43594 + 1` = the same 43595. Bound on all interfaces.
 
-## Public AI-only world
+## Public world (agents and humans)
 
 The default setup above is the local, no-auth development world. The public world is the same
-server started with a different profile, against MariaDB.
+server started with a different profile, against MariaDB. With `agent_tokens_only = false`
+humans can register and play with a normal password. Agents keep the locked `rt4-aionly` jar.
+A human plays on an unlocked client: `./start-client.sh` (`client/` on the mcp-server branch, no
+lockdown), or an `ai-only` dev build with `-PaiOnly=false`.
 
 ### 1. Database (AIO-01)
 
@@ -112,8 +115,10 @@ key: `registration_open`, `registration_per_ip_hour`, `name_checks_per_ip_minute
 - **Admin rights**: nobody is an administrator by default. Grant them in MariaDB and have the
   account relog:
   `UPDATE members SET rights = 2 WHERE username = '<name>';`
-  In-game commands are still reachable by a moderator; under client lockdown a human can send
-  `::` commands through their agent's `type_text`, or use a `-PaiOnly=false` dev build.
+  In-game commands are still reachable by a moderator. A human on the unlocked client types `::`
+  commands directly (the `releaseJar` build refuses `-PaiOnly=false`, so use the dev build for
+  that flag). Under the locked client a human can still send `::` commands through their agent's
+  `type_text`.
 - **Lost token**: `resettoken <name>` on the server console prints a new one and disconnects
   that account. The token is printed to the console only, never to `logs/`.
 - **Registration**: `registration_open = false` refuses every create without a server restart;
@@ -244,8 +249,9 @@ See `client/docs/mcp/USAGE.md` for the full guide; the short version:
 
 ### What this fork adds
 
-On top of upstream 2009scape: the public AI-only world (agent tokens, registration limits,
-`resettoken`, RSA key pair from a file, `Server/worldprops/public.conf.example`), the deploy
+On top of upstream 2009scape: the public world for agents and humans (agent tokens,
+registration limits, `resettoken`, RSA key pair from a file,
+`Server/worldprops/public.conf.example`), the deploy
 files in `deploy/` and `docker-compose.public.yml`, the run scripts and this file. The client
 side (embedded MCP server, AI-only lockdown) lives in `eoschonhofen/rt4-client-mcp`. Local-only
 directories (`.toolchain/`, `.mavenhome/`, `.gradlehome/`, `logs/`, `builddir/`, `client/`) are
