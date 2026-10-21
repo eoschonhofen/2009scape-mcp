@@ -7,13 +7,22 @@ services:
     volumes:
       - "bcache:/app/Server/target"
       - "mcache:/root/.m2"
-      - "./Server/data:/app/Server/data"
-      - "./config:/app/Server/worldprops"
+      - "./Server/data:/app/Server/data:Z"
+      - "./config:/app/Server/worldprops:Z"
     ports:
-      - "43594-43600:43594-43600"
-      - "5005:5005"
+      - "127.0.0.1:43595:43595"
     environment:
-      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      # The native start script caps the heap at 3G; without a cap the JVM takes
+      # a quarter of the host's RAM.
+      - JAVA_TOOL_OPTIONS=-Xmx3g
+    healthcheck:
+      # The game listener. The image rebuilds the jar before starting, so the
+      # first start after a clean checkout can take several minutes.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/43595'"]
+      start_period: 600s
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   db:
     # current LTS (Long-Term Support) version
@@ -26,8 +35,8 @@ services:
       retries: 3
     restart: always
     volumes:
-      - "./db:/var/lib/mysql"
-      - "./Server/db_exports/global.sql:/docker-entrypoint-initdb.d/global.sql"
+      - "./db:/var/lib/mysql:Z"
+      - "./Server/db_exports/global.sql:/docker-entrypoint-initdb.d/global.sql:ro,Z"
     env_file:
       - mysql.env
 

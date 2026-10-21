@@ -113,6 +113,24 @@ without MariaDB — that is what [testing.md](testing.md) uses.
 | 43600–43609/tcp loopback | The client's MCP server, one port per client |
 | 3306/tcp loopback | MariaDB in the public deployment; never published |
 
+## Local install on this machine
+
+The checkout at `~/random-projects/2009scape` runs the development client against a
+MariaDB-backed local world, not the locked AI-only one:
+
+- `start-client.sh` passes `-PaiOnly=false`, so `lockdown=false`, plugins load, real input works,
+  and the native login form and account creation are live. Humans play with a name and password
+  they choose; an agent logs in the same way through MCP `login(name, password)`.
+- `config/default.conf` sets `use_auth = true`, `persist_accounts = true`,
+  `database_address = "db"`, `registration_open = true` and `agent_tokens_only = false`. Accounts
+  are rows in the MariaDB `members` table.
+- Server and MariaDB run rootless in podman from `docker-compose.yml` (compose project
+  `2009scape`), controlled by `./stack.sh up|down|status|logs`; only `127.0.0.1:43595` is
+  published. Details and first-run timings are in `SETUP.md`.
+
+The locked AI-only build remains `./gradlew :client:run -PaiOnly=true`, and the token rules above
+apply to it.
+
 ## Console
 
 The server reads stdin: `stop`, `players`, `update`, `help`, `restartworker`,

@@ -60,6 +60,9 @@ then in two terminals:
 Log in with any name and password: authentication is off in the development profile. The client
 prints the `claude mcp add ...` line that connects an agent to it.
 
+This host runs the same world from rootless podman instead — server plus MariaDB, auth on, and a
+development client so humans can play (see [SETUP.md](SETUP.md#local-install-on-this-machine-podman-stack-2026-10-21)).
+
 ## Documentation
 
 | Document | Covers |

@@ -250,3 +250,44 @@ files in `deploy/` and `docker-compose.public.yml`, the run scripts and this fil
 side (embedded MCP server, AI-only lockdown) lives in `eoschonhofen/rt4-client-mcp`. Local-only
 directories (`.toolchain/`, `.mavenhome/`, `.gradlehome/`, `logs/`, `builddir/`, `client/`) are
 gitignored.
+
+## Local install on this machine: podman stack (2026-10-21)
+
+Server and database run as rootless **podman** containers; the client runs natively because it
+needs OpenGL.
+
+| Piece | Where |
+|---|---|
+| Stack | `docker-compose.yml`, project name `2009scape` |
+| Server profile | `config/default.conf` (mounted over `Server/worldprops`): auth on, DB host `db` |
+| DB credentials | `mysql.env` (mode 600, gitignored) |
+| MariaDB data | `db/` (bind mount, SELinux `:Z`) |
+| Control | `./stack.sh up\|down\|status\|logs` |
+
+Notes:
+
+- Images: `localhost/2009scape_server` built from `Dockerfile`, and `docker.io/library/mariadb:11.4-noble`.
+- Only `127.0.0.1:43595` is published. MariaDB is not published at all: the game server reaches it
+  as `db:3306` on the compose network, and the database user is `root` with an empty password.
+  Replace that with a dedicated user (updating `mysql.env` and `config/default.conf` together)
+  before exposing anything beyond loopback.
+- The bind mounts carry `:Z`; without the label SELinux (enforcing) denies container access to
+  `~/random-projects`.
+- The image's `./run` rebuilds `builddir/server.jar` at every container start. Maven's cache lives
+  in the `2009scape_mcache` volume and compiled classes in `2009scape_bcache`, so only the first
+  start after a clean checkout is slow (~7-8 minutes, including the one-off Grand Exchange price
+  seed into `Server/data/eco/grandexchange.db`). Later starts reach "2009Scape started in ..." in
+  seconds.
+- Client: `./start-client.sh` or the desktop shortcut. It builds the development client
+  (`-PaiOnly=false`): the native login form and account creation work and real input reaches the
+  game, so humans can play. The embedded MCP server still listens on `127.0.0.1:43600`, and an
+  agent logs in the same way with `login(<name>, <password>)`. Build with `-PaiOnly=true` for the
+  locked AI-only client.
+- Accounts: `registration_open = true` and `agent_tokens_only = false` in `config/default.conf`,
+  so a player creates their account and picks a password on the title screen; it lands in the
+  MariaDB `members` table. Set `agent_tokens_only = true` to accept only 20-character agent
+  tokens as passwords.
+- No `2009scape-db` systemd unit is in use here; compose owns both containers.
+- To reset the world, stop the stack and remove the database inside the user namespace:
+  `podman unshare rm -rf db && mkdir db`, then `./stack.sh up`. A plain `rm -rf db` fails because
+  the files belong to the container's mapped user.
